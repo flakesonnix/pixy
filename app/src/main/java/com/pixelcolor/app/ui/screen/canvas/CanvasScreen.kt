@@ -6,9 +6,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.rememberTransformableState
-import androidx.compose.foundation.gestures.transformable
+import androidx.compose.foundation.gestures.forEachGesture
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -273,13 +271,6 @@ private fun PixelCanvas(
         offset = uiState.panOffset
     }
 
-    val transformableState = rememberTransformableState { zoomChange, panChange, _ ->
-        scale = (scale * zoomChange).coerceIn(0.5f, 8f)
-        offset += panChange
-        viewModel.setZoom(scale)
-        viewModel.setPan(offset)
-    }
-
     val shakeOffset = if (uiState.shakePixel != null) {
         val shakeAnim = remember { Animatable(0f) }
         LaunchedEffect(uiState.shakePixel) {
@@ -310,22 +301,73 @@ private fun PixelCanvas(
                 translationX = offset.x + shakeOffset
                 translationY = offset.y
             }
-            .transformable(state = transformableState)
             .pointerInput(Unit) {
-                detectTapGestures { tapOffset ->
-                    val centerX = size.width / 2f
-                    val centerY = size.height / 2f
-                    val adjustedX = (tapOffset.x - offset.x - centerX) / scale + centerX
-                    val adjustedY = (tapOffset.y - offset.y - centerY) / scale + centerY
+                forEachGesture {
+                    awaitPointerEventScope {
+                        val down = awaitFirstDown()
+                        val startTime = System.currentTimeMillis()
+                        val downPos = down.position
+                        var lastPos = downPos
+                        var pointerCount = 1
 
-                    val pixelW = size.width / puzzle.gridWidth
-                    val pixelH = size.height / puzzle.gridHeight
+                        // Wait for second finger or pointer up
+                        while (pointerCount == 1) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.first()
+                            lastPos = change.position
+                            val hasNewDown = event.changes.any { c ->
+                                c.pressed && c.position != downPos
+                            }
+                            pointerCount = event.changes.count { it.pressed }
+                            if (!change.pressed || hasNewDown || pointerCount != 1) break
+                            if (System.currentTimeMillis() - startTime > 300) break
+                        }
 
-                    val gridX = (adjustedX / pixelW).toInt()
-                    val gridY = (adjustedY / pixelH).toInt()
-
-                    if (gridX in 0 until puzzle.gridWidth && gridY in 0 until puzzle.gridHeight) {
-                        viewModel.tapPixel(gridX, gridY)
+                        if (pointerCount >= 2) {
+                            // Pinch-to-zoom + pan
+                            var prevCentroid = Offset.Zero
+                            var prevFingers = 0
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val pressed = event.changes.filter { it.pressed }
+                                if (pressed.size < 2) break
+                                val centroid = pressed.fold(Offset.Zero) { a, c -> a + c.position } / pressed.size.toFloat()
+                                if (pressed.size == prevFingers && prevFingers == 2) {
+                                    val d0 = (pressed[0].position - pressed[0].previousPosition).getDistance()
+                                    val d1 = (pressed[1].position - pressed[1].previousPosition).getDistance()
+                                    if (d0 > 0.5f || d1 > 0.5f) {
+                                        val curDist = (pressed[0].position - pressed[1].position).getDistance()
+                                        val prevDist = (pressed[0].previousPosition - pressed[1].previousPosition).getDistance()
+                                        if (prevDist > 0f) {
+                                            scale = (scale * (curDist / prevDist)).coerceIn(0.5f, 8f)
+                                        }
+                                        offset += centroid - prevCentroid
+                                        viewModel.setZoom(scale)
+                                        viewModel.setPan(offset)
+                                    }
+                                }
+                                prevCentroid = centroid
+                                prevFingers = pressed.size
+                                event.changes.forEach { it.consume() }
+                            }
+                        } else {
+                            // Tap: finger lifted, no movement, under 300ms
+                            val elapsed = System.currentTimeMillis() - startTime
+                            val moved = (lastPos - downPos).getDistance()
+                            if (elapsed < 300 && moved < 10f) {
+                                val cx = size.width / 2f
+                                val cy = size.height / 2f
+                                val ax = (lastPos.x - offset.x - cx) / scale + cx
+                                val ay = (lastPos.y - offset.y - cy) / scale + cy
+                                val pixelW = size.width / puzzle.gridWidth
+                                val pixelH = size.height / puzzle.gridHeight
+                                val gridX = (ax / pixelW).toInt()
+                                val gridY = (ay / pixelH).toInt()
+                                if (gridX in 0 until puzzle.gridWidth && gridY in 0 until puzzle.gridHeight) {
+                                    viewModel.tapPixel(gridX, gridY)
+                                }
+                            }
+                        }
                     }
                 }
             }
