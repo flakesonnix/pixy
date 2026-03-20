@@ -59,7 +59,7 @@ class TimeLapseRecorder(private val context: Context) {
             var trackIndex = -1
             var muxerStarted = false
 
-            val canvas = Canvas(inputSurface)
+            val canvas = inputSurface.lockCanvas(null)
             val bitmap = Bitmap.createBitmap(VIDEO_SIZE, VIDEO_SIZE, Bitmap.Config.ARGB_8888)
             val bitmapCanvas = Canvas(bitmap)
 
@@ -138,7 +138,6 @@ class TimeLapseRecorder(private val context: Context) {
                     if (outputBufferIndex == MediaCodec.INFO_TRY_AGAIN_LATER) break
                     if (outputBufferIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
                         if (muxerStarted) throw RuntimeException("Format changed twice")
-                        trackIndex = encoder.outputFormat
                         trackIndex = muxer.addTrack(encoder.outputFormat)
                         muxer.start()
                         muxerStarted = true

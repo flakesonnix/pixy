@@ -200,7 +200,7 @@ object PuzzleFactory {
         p.color = AndroidColor.rgb(139, 0, 0)
         val tail = Path()
         tail.moveTo(w * 0.8f, h * 0.55f)
-        tail.cubicTo(w * 0.9f, h * 0.6f, w, h * 0.75f, w * 0.95f, h * 0.88f)
+        tail.cubicTo(w * 0.9f, h * 0.6f, w.toFloat(), h * 0.75f, w * 0.95f, h * 0.88f)
         tail.lineTo(w * 0.88f, h * 0.85f)
         tail.cubicTo(w * 0.92f, h * 0.72f, w * 0.85f, h * 0.58f, w * 0.78f, h * 0.55f)
         tail.close()
@@ -377,7 +377,7 @@ object PuzzleFactory {
         for (tx in listOf(0.72f, 0.78f, 0.84f)) {
             drawRect(w * tx, h * 0.16f, w * (tx + 0.03f), h * 0.2f, p)
         }
-        for (tx in 0.22f..0.78f step 0.06f) {
+        for (tx in listOf(0.22f, 0.28f, 0.34f, 0.40f, 0.46f, 0.52f, 0.58f, 0.64f, 0.70f, 0.76f)) {
             drawRect(w * tx, h * 0.36f, w * (tx + 0.03f), h * 0.4f, p)
         }
         // door
@@ -423,8 +423,8 @@ object PuzzleFactory {
         p.alpha = 80
         val beam = Path()
         beam.moveTo(w * 0.35f, h * 0.6f)
-        beam.lineTo(w * 0.15f, h)
-        beam.lineTo(w * 0.85f, h)
+        beam.lineTo(w * 0.15f, h.toFloat())
+        beam.lineTo(w * 0.85f, h.toFloat())
         beam.lineTo(w * 0.65f, h * 0.6f)
         beam.close()
         drawPath(beam, p)

@@ -13,3 +13,5 @@ local.properties
 *.apk
 *.ap_
 *.aab
+*.bak
+.kotlin/

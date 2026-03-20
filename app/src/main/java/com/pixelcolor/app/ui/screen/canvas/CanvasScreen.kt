@@ -7,7 +7,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -272,6 +273,13 @@ private fun PixelCanvas(
         offset = uiState.panOffset
     }
 
+    val transformableState = rememberTransformableState { zoomChange, panChange, _ ->
+        scale = (scale * zoomChange).coerceIn(0.5f, 8f)
+        offset += panChange
+        viewModel.setZoom(scale)
+        viewModel.setPan(offset)
+    }
+
     val shakeOffset = if (uiState.shakePixel != null) {
         val shakeAnim = remember { Animatable(0f) }
         LaunchedEffect(uiState.shakePixel) {
@@ -280,17 +288,19 @@ private fun PixelCanvas(
                 0f,
                 animationSpec = keyframes {
                     durationMillis = 300
-                    -4f at 50ms
-                    4f at 100ms
-                    -3f at 150ms
-                    3f at 200ms
-                    -1f at 250ms
-                    0f at 300ms
+                    -4f at 50
+                    4f at 100
+                    -3f at 150
+                    3f at 200
+                    -1f at 250
+                    0f at 300
                 }
             )
         }
         shakeAnim.value
     } else 0f
+
+
 
     Canvas(
         modifier = modifier
@@ -300,18 +310,13 @@ private fun PixelCanvas(
                 translationX = offset.x + shakeOffset
                 translationY = offset.y
             }
-            .pointerInput(Unit) {
-                detectTransformGestures { centroid, pan, gestureZoom, _ ->
-                    scale = (scale * gestureZoom).coerceIn(0.5f, 8f)
-                    offset += pan
-                    viewModel.setZoom(scale)
-                    viewModel.setPan(offset)
-                }
-            }
+            .transformable(state = transformableState)
             .pointerInput(Unit) {
                 detectTapGestures { tapOffset ->
-                    val adjustedX = (tapOffset.x - offset.x) / scale
-                    val adjustedY = (tapOffset.y - offset.y) / scale
+                    val centerX = size.width / 2f
+                    val centerY = size.height / 2f
+                    val adjustedX = (tapOffset.x - offset.x - centerX) / scale + centerX
+                    val adjustedY = (tapOffset.y - offset.y - centerY) / scale + centerY
 
                     val pixelW = size.width / puzzle.gridWidth
                     val pixelH = size.height / puzzle.gridHeight

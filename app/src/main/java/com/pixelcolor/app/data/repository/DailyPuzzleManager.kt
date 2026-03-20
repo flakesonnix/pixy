@@ -41,6 +41,6 @@ class DailyPuzzleManager(
     fun getNextPuzzleTime(): Long {
         val tomorrow = LocalDate.now().plusDays(1)
         val midnight = java.time.LocalDateTime.of(tomorrow, java.time.LocalTime.MIDNIGHT)
-        return midnight.atZone(java.time.ZoneId.systemDefault()).toEpochMilli()
+        return midnight.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
     }
 }
