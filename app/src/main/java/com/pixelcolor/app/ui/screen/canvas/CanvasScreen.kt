@@ -33,11 +33,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.graphics.Paint
+import android.graphics.Typeface
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pixelcolor.app.ui.viewmodel.CanvasUiState
 import com.pixelcolor.app.ui.viewmodel.CanvasViewModel
-import kotlin.math.roundToInt
 
 @Composable
 fun CanvasScreen(
@@ -352,6 +354,12 @@ private fun PixelCanvas(
         }
 
         // Draw all pixels
+        val textPaint = Paint().apply {
+            textSize = (pixelW * 0.55f).coerceAtLeast(6f).coerceAtMost(14f)
+            typeface = Typeface.DEFAULT_BOLD
+            textAlign = Paint.Align.CENTER
+        }
+
         for (pixel in puzzle.pixels) {
             val isFilled = filledPixels["${pixel.x},${pixel.y}"] == true
             val paletteColor = palette[pixel.colorId]
@@ -364,7 +372,6 @@ private fun PixelCanvas(
                     Color.Gray
                 }
             } else {
-                // Unfilled - show light gray with color number
                 Color(0xFFF0F0F0)
             }
 
@@ -373,15 +380,32 @@ private fun PixelCanvas(
                 topLeft = Offset(pixel.x * pixelW, pixel.y * pixelH),
                 size = Size(pixelW - 0.5f, pixelH - 0.5f)
             )
-        }
 
-        // Draw color numbers on unfilled pixels (only when zoomed in enough)
-        if (scale > 1.5f) {
-            for (pixel in puzzle.pixels) {
-                val isFilled = filledPixels["${pixel.x},${pixel.y}"] ?: false
-                if (!isFilled) {
-                    // We can't draw text directly in Canvas drawScope without extra setup
-                    // Numbers will be shown via the palette color indication
+            // Draw color number on unfilled pixels when zoomed in
+            if (!isFilled && scale > 1.2f) {
+                val numStr = paletteColor?.label ?: ""
+                if (numStr.isNotEmpty()) {
+                    // Tint the unfilled pixel with a very light version of its target color
+                    val targetColor = try {
+                        Color(android.graphics.Color.parseColor(colorHex))
+                    } catch (e: Exception) {
+                        Color.Gray
+                    }
+                    drawRect(
+                        color = targetColor.copy(alpha = 0.12f),
+                        topLeft = Offset(pixel.x * pixelW, pixel.y * pixelH),
+                        size = Size(pixelW - 0.5f, pixelH - 0.5f)
+                    )
+
+                    // Draw the number
+                    textPaint.color = if (targetColor.luminance() > 0.4f) {
+                        android.graphics.Color.rgb(60, 60, 60)
+                    } else {
+                        android.graphics.Color.WHITE
+                    }
+                    val cx = pixel.x * pixelW + pixelW / 2f
+                    val cy = pixel.y * pixelH + pixelH / 2f - (textPaint.descent() + textPaint.ascent()) / 2f
+                    drawContext.canvas.nativeCanvas.drawText(numStr, cx, cy, textPaint)
                 }
             }
         }

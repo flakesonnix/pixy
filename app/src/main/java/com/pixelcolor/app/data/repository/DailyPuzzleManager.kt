@@ -2,43 +2,40 @@ package com.pixelcolor.app.data.repository
 
 import com.pixelcolor.app.data.database.PixelColorDatabase
 import com.pixelcolor.app.domain.model.PixelPuzzle
+import com.pixelcolor.app.domain.model.Difficulty
+import com.pixelcolor.app.domain.model.Category
+import kotlinx.coroutines.flow.first
+import kotlinx.serialization.json.Json
 import java.time.LocalDate
 
 class DailyPuzzleManager(
     private val database: PixelColorDatabase
 ) {
     private val puzzleDao = database.puzzleDao()
+    private val json = Json { ignoreUnknownKeys = true }
 
     suspend fun getTodayPuzzle(): PixelPuzzle? {
-        val allPuzzles = puzzleDao.getAllPuzzles()
-        // Use date-seeded selection
-        val today = LocalDate.now()
-        val seed = today.toEpochDay()
-        val allList = allPuzzles.let { flow ->
-            var result: List<com.pixelcolor.app.data.database.entity.PuzzleEntity>? = null
-            flow.collect { result = it }
-            result ?: emptyList()
-        }
+        val allList = puzzleDao.getAllPuzzles().first()
 
         if (allList.isEmpty()) return null
 
-        val index = (seed % allList.size).toInt().let { if (it < 0) -it else it }
-        val entity = allList[index]
-        return entity.let { e ->
-            val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
-            PixelPuzzle(
-                id = e.id,
-                title = e.title,
-                gridWidth = e.gridWidth,
-                gridHeight = e.gridHeight,
-                difficulty = com.pixelcolor.app.domain.model.Difficulty.valueOf(e.difficulty),
-                category = com.pixelcolor.app.domain.model.Category.valueOf(e.category),
-                isDailyPuzzle = true,
-                thumbnailRes = e.thumbnailRes,
-                palette = json.decodeFromString(e.paletteJson),
-                pixels = json.decodeFromString(e.pixelsJson)
-            )
-        }
+        val today = LocalDate.now()
+        val seed = today.toEpochDay()
+        val index = ((seed % allList.size) + allList.size) % allList.size
+        val entity = allList[index.toInt()]
+
+        return PixelPuzzle(
+            id = entity.id,
+            title = entity.title,
+            gridWidth = entity.gridWidth,
+            gridHeight = entity.gridHeight,
+            difficulty = Difficulty.valueOf(entity.difficulty),
+            category = Category.valueOf(entity.category),
+            isDailyPuzzle = true,
+            thumbnailRes = entity.thumbnailRes,
+            palette = json.decodeFromString(entity.paletteJson),
+            pixels = json.decodeFromString(entity.pixelsJson)
+        )
     }
 
     fun getNextPuzzleTime(): Long {

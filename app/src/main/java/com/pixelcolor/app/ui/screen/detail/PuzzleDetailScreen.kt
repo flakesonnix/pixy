@@ -15,6 +15,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -35,10 +36,11 @@ fun PuzzleDetailScreen(
     var progress by remember { mutableStateOf<UserProgress?>(null) }
     var isLoading by remember { mutableStateOf(true) }
 
+    val context = LocalContext.current
+    val app = remember { context.applicationContext as PixelColorApplication }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(puzzleId) {
-        val app = androidx.compose.ui.platform.LocalContext.current.applicationContext as PixelColorApplication
         puzzle = app.puzzleRepository.getPuzzleById(puzzleId)
         progress = app.puzzleRepository.getProgressSync(puzzleId)
         isLoading = false
@@ -232,7 +234,6 @@ fun PuzzleDetailScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 TextButton(onClick = {
                     scope.launch {
-                        val app = androidx.compose.ui.platform.LocalContext.current.applicationContext as PixelColorApplication
                         app.puzzleRepository.resetProgress(puzzleId)
                         progress = null
                     }
